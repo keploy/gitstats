@@ -62,6 +62,149 @@ type OrganizationStats struct {
 	TotalContributors int    `json:"total_contributors"`
 }
 
+type StarHistory struct {
+	RepoName string      `json:"repo_name"`
+	History  []StarPoint `json:"history"`
+}
+
+// StarPoint represents stars at a specific point in time
+type StarPoint struct {
+	Date  time.Time `json:"date"`
+	Stars int       `json:"stars"`
+}
+
+// MultiRepoStarHistory represents star history for multiple repositories
+type MultiRepoStarHistory struct {
+	Repositories []StarHistory `json:"repositories"`
+}
+
+func getStarHistory(owner, repo string, config *Config) (*StarHistory, error) {
+	// GitHub's API doesn't provide direct star history, so we'll use stargazers endpoint
+	page := 1
+	perPage := 100
+	history := make([]StarPoint, 0)
+
+	for {
+		url := fmt.Sprintf("https://api.github.com/repos/%s/%s/stargazers?page=%d&per_page=%d",
+			owner, repo, page, perPage)
+
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating request: %v", err)
+		}
+
+		// Required header for timestamp information
+		req.Header.Add("Accept", "application/vnd.github.v3.star+json")
+		if config != nil && config.GithubToken != "" {
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.GithubToken))
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("error making request: %v", err)
+		}
+
+		if resp.StatusCode == http.StatusForbidden {
+			resp.Body.Close()
+			return nil, fmt.Errorf("rate limit exceeded. Please use a GitHub token")
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("GitHub API returned status: %d, body: %s", resp.StatusCode, string(body))
+		}
+
+		// Parse response
+		var stargazers []struct {
+			StarredAt time.Time `json:"starred_at"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&stargazers); err != nil {
+			resp.Body.Close()
+			return nil, fmt.Errorf("error decoding response: %v", err)
+		}
+		resp.Body.Close()
+
+		if len(stargazers) == 0 {
+			break
+		}
+
+		// Accumulate star counts
+		starCount := page * perPage
+		for i, sg := range stargazers {
+			history = append(history, StarPoint{
+				Date:  sg.StarredAt,
+				Stars: starCount - (len(stargazers) - i - 1),
+			})
+		}
+
+		if len(stargazers) < perPage {
+			break
+		}
+
+		page++
+	}
+
+	// Sort history by date
+	sort.Slice(history, func(i, j int) bool {
+		return history[i].Date.Before(history[j].Date)
+	})
+
+	return &StarHistory{
+		RepoName: fmt.Sprintf("%s/%s", owner, repo),
+		History:  history,
+	}, nil
+}
+
+func handleStarHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get repositories from query parameter
+	repos := r.URL.Query()["repo"]
+	if len(repos) == 0 {
+		http.Error(w, "At least one repository URL is required", http.StatusBadRequest)
+		return
+	}
+
+	// Make token optional
+	var config *Config
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		token = strings.TrimSpace(token)
+		config = &Config{GithubToken: token}
+	}
+
+	// Fetch star history for all repositories
+	result := MultiRepoStarHistory{
+		Repositories: make([]StarHistory, 0, len(repos)),
+	}
+
+	for _, repoURL := range repos {
+		owner, repo, err := extractRepoInfo(repoURL)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid repository URL: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		history, err := getStarHistory(owner, repo, config)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		result.Repositories = append(result.Repositories, *history)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
 func getOrgContributors(org string, config *Config) (*OrganizationStats, error) {
 	page := 1
 	perPage := 100
@@ -349,14 +492,21 @@ func main() {
 	// Serve static files
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			http.ServeFile(w, r, "index.html")
+			http.ServeFile(w, r, "./web/index.html")
 			return
 		}
 	})
 
 	http.HandleFunc("/orgs", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/orgs" {
-			http.ServeFile(w, r, "org.html")
+			http.ServeFile(w, r, "./web/org.html")
+			return
+		}
+	})
+
+	http.HandleFunc("/starhistory", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/starhistory" {
+			http.ServeFile(w, r, "./web/stars.html")
 			return
 		}
 	})
@@ -364,6 +514,7 @@ func main() {
 	// API endpoint
 	http.HandleFunc("/repo-stats", handleRepoStats)
 	http.HandleFunc("/org-contributors", handleOrgContributors)
+	http.HandleFunc("/star-history", handleStarHistory)
 
 	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
