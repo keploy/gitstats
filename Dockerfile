@@ -34,7 +34,7 @@ WORKDIR /app
 COPY --from=builder /app/main .
 
 # Copy static files
-COPY *.html ./
+COPY .. ./
 
 # Expose the port the app runs on
 EXPOSE 8080

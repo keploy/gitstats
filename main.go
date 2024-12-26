@@ -489,6 +489,7 @@ func calculateDownloadStats(releases []Release) *DownloadStats {
 }
 
 func main() {
+	http.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir("./images"))))
 	// Serve static files
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
