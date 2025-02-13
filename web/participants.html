@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="description" content="Get statistics for GitHub releases, including total downloads and download counts for each asset">
-    <meta name="keywords" content="HTML, CSS, GitHub, Repository, Star, History, GitHub Stats">
+    <meta name="description" content="View most active contributors from last 30 days for any GitHub repository">
+    <meta name="keywords" content="HTML, CSS, GitHub, Repository, Contributors, GitHub Stats">
     <meta name="author" content="Animesh Pathak">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link type="image/png" sizes="120x120" rel="icon" href="../images/icons8-github-120.png">
-    <title>GitHub Stats - by Sonichigo</title>
+    <title>Active Contributors - GitHub Stats</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
     <style>
-        /* Existing styles */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             max-width: full;
@@ -19,7 +18,6 @@
             background-color: #f6f8fa;
         }
         
-        /* New navbar styles */
         .navbar {
             background-color: #24292e;
             padding: 12px 20px;
@@ -30,6 +28,7 @@
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.12);
         }
+
         .a:hover {
             cursor: pointer;
         }
@@ -43,38 +42,40 @@
             fill: white;
             height: 32px;
         }
+
         text {
             fill: white;
-            font-family:"Arial";
-            font-size:"30";
-            font-weight:"bold";
+            font-family: "Arial";
+            font-size: "30";
+            font-weight: "bold";
         }
-        /* Rest of existing styles */
+
         .container {
             background-color: white;
             border-radius: 8px;
             padding: 20px;
+            margin: 0 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.12);
         }
+
         .header {
             text-align: center;
             margin-bottom: 30px;
         }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+
         .input-group {
             display: flex;
             flex-direction: column;
             gap: 10px;
             margin-bottom: 20px;
         }
+
         .input-row {
             display: flex;
             gap: 10px;
             justify-content: center;
         }
+
         input {
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -82,6 +83,7 @@
             width: 300px;
             font-size: 16px;
         }
+
         button {
             padding: 8px 16px;
             background-color: #2ea44f;
@@ -91,49 +93,58 @@
             cursor: pointer;
             font-size: 16px;
         }
+
         button:hover {
             background-color: #2c974b;
         }
+
         .stats {
             margin: 20px;
         }
-        .total-downloads {
-            text-align: center;
-            font-size: 24px;
-            margin: 20px 0;
-            padding: 20px;
-            background-color: #f6f8fa;
-            border-radius: 8px;
-        }
-        .releases {
+
+        .contributors-list {
             display: grid;
-            gap: 20px;
+            gap: 15px;
+            margin-top: 20px;
         }
-        .release {
+
+        .contributor-card {
+            background-color: white;
             border: 1px solid #ddd;
             border-radius: 8px;
             padding: 15px;
-        }
-        .release-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
         }
-        .release-tag {
+
+        .contributor-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .contributor-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+
+        .contributor-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .contributor-name {
             font-weight: bold;
             color: #0366d6;
         }
-        .asset {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px;
-            background-color: #f6f8fa;
-            margin: 5px 0;
-            border-radius: 4px;
+
+        .contribution-stats {
+            color: #666;
+            font-size: 0.9em;
         }
+
         .error {
             color: #cf222e;
             text-align: center;
@@ -143,46 +154,24 @@
             margin: 10px 20px;
             display: none;
         }
+
         .loading {
             text-align: center;
             padding: 20px;
             display: none;
         }
+
         .token-help {
             font-size: 14px;
             color: #666;
             text-align: center;
             margin-top: 5px;
         }
-        .release-date {
-            color: #666;
-            font-size: 0.9em;
-        }
-        .stats-summary {
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-            padding: 20px;
-            background-color: #f6f8fa;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .stats-item {
-            display: flex;
-            flex-direction: column;
-        }
-        .stats-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #0366d6;
-        }
-        .stats-label {
-            color: #666;
-            margin-top: 5px;
-        }
+
         .loading-text {
             animation: pulse 1.5s infinite;
         }
+
         @keyframes pulse {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
@@ -229,42 +218,45 @@
         </div>
     </nav>
 
-        <div class="container">
-            <div class="header">
-                <h1>Release Statistics</h1>
+    <div class="container">
+        <div class="header">
+            <h1>Active Contributors</h1>
+            <p>View the most active non-organization contributors from the last 30 days</p>
+        </div>
+        
+        <div class="input-group">
+            <div class="input-row">
+                <input type="text" id="repoUrl" placeholder="Enter GitHub repository URL" />
             </div>
-            
-            <div class="input-group">
-                <div class="input-row">
-                    <input type="text" id="repoUrl" placeholder="Enter GitHub repository URL" />
-                </div>
-                <div class="input-row">
-                    <input type="password" id="githubToken" placeholder="GitHub Token (optional)" />
-                </div>
-                <div class="token-help">
-                    Note: Without a token, requests are limited to 60 per hour. With a token, you get 5,000 requests per hour.
-                </div>
-                <div class="token-help">
-                    Need a token? Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token
-                </div>
-                <div class="input-row">
-                    <button onclick="fetchStats()">Get Stats</button>
-                </div>
+            <div class="input-row">
+                <input type="password" id="githubToken" placeholder="GitHub Token (optional)" />
+            </div>
+            <div class="token-help">
+                Note: Without a token, requests are limited to 60 per hour. With a token, you get 5,000 requests per hour.
+            </div>
+            <div class="token-help">
+                Need a token? Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token
+            </div>
+            <div class="input-row">
+                <button onclick="fetchContributors()">Get Contributors</button>
             </div>
         </div>
+    </div>
 
-        <div id="error" class="error"></div>
-        <div id="loading" class="loading">Loading...</div>
+    <div id="error" class="error"></div>
+    <div id="loading" class="loading">Loading...</div>
 
-        <div id="stats" class="stats">
-            <div id="totalDownloads" class="total-downloads"></div>
-            <div id="releases" class="releases"></div>
-        </div>
+    <div id="stats" class="stats">
+        <div id="contributors" class="contributors-list"></div>
+    </div>
 
     <script>
-        // All existing JavaScript remains the same
-        const formatNumber = (num) => {
-            return new Intl.NumberFormat().format(num);
+        const formatDate = (dateString) => {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
         };
 
         const showError = (message) => {
@@ -274,15 +266,7 @@
             document.getElementById('loading').style.display = 'none';
         };
 
-        const formatDate = (dateString) => {
-            return new Date(dateString).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-        };
-
-        const fetchStats = async () => {
+        const fetchContributors = async () => {
             const repoUrl = document.getElementById('repoUrl').value;
             const token = document.getElementById('githubToken').value;
 
@@ -293,9 +277,8 @@
 
             document.getElementById('error').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading').innerHTML = '<span class="loading-text">Fetching all releases, this might take a moment...</span>';
-            document.getElementById('totalDownloads').innerHTML = '';
-            document.getElementById('releases').innerHTML = '';
+            document.getElementById('loading').innerHTML = '<span class="loading-text">Fetching active contributors, this might take a moment...</span>';
+            document.getElementById('contributors').innerHTML = '';
 
             try {
                 const headers = {
@@ -306,49 +289,34 @@
                     headers['Authorization'] = `Bearer ${token}`;
                 }
 
-                const response = await axios.get(`/repo-stats?repo=${encodeURIComponent(repoUrl)}`, {
+                const response = await axios.get(`/active-contributors?repo=${encodeURIComponent(repoUrl)}`, {
                     headers: headers
                 });
+                
                 const data = response.data;
 
-                // Display summary stats
-                document.getElementById('totalDownloads').innerHTML = `
-                    <div class="stats-summary">
-                        <div class="stats-item">
-                            <span class="stats-value">${formatNumber(data.total_downloads)}</span>
-                            <span class="stats-label">Total Downloads</span>
-                        </div>
-                        <div class="stats-item">
-                            <span class="stats-value">${data.releases.length}</span>
-                            <span class="stats-label">Total Releases</span>
-                        </div>
-                    </div>
-                `;
-
-                // Display releases
-                const releasesHtml = data.releases.map(release => `
-                    <div class="release">
-                        <div class="release-header">
-                            <div>
-                                <span class="release-tag">${release.tag_name}</span>
-                                <div class="release-date">${formatDate(release.created_at)}</div>
-                            </div>
-                            <span>Total: ${formatNumber(release.total_downloads)}</span>
-                        </div>
-                        <div class="assets">
-                            ${release.assets.map(asset => `
-                                <div class="asset">
-                                    <span>${asset.name}</span>
-                                    <span>${formatNumber(asset.download_count)}</span>
+                const contributorsHtml = data.active_contributors.map(contributor => `
+                    <div class="contributor-card">
+                        <div class="contributor-info">
+                            <img class="contributor-avatar" src="https://github.com/${contributor.login}.png" alt="${contributor.login}'s avatar" />
+                            <div class="contributor-details">
+                                <a href="https://github.com/${contributor.login}" target="_blank" class="contributor-name">@${contributor.login}</a>
+                                <div class="contribution-stats">
+                                    ${contributor.contributions} contributions
+                                    <br>
+                                    Last active: ${formatDate(contributor.last_active_date)}
                                 </div>
-                            `).join('')}
+                            </div>
+                        </div>
+                        <div class="contribution-count">
+                            <strong>${contributor.contributions}</strong> commits
                         </div>
                     </div>
                 `).join('');
 
-                document.getElementById('releases').innerHTML = releasesHtml;
+                document.getElementById('contributors').innerHTML = contributorsHtml || '<p style="text-align: center">No active contributors found in the last 30 days.</p>';
             } catch (error) {
-                showError(error.response?.data || 'Error fetching repository statistics');
+                showError(error.response?.data || 'Error fetching contributor statistics');
             } finally {
                 document.getElementById('loading').style.display = 'none';
             }
@@ -357,13 +325,13 @@
         // Handle Enter key press
         document.getElementById('repoUrl').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                fetchStats();
+                fetchContributors();
             }
         });
 
         document.getElementById('githubToken').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                fetchStats();
+                fetchContributors();
             }
         });
     </script>

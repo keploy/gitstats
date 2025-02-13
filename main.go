@@ -4,15 +4,12 @@ import (
 	"log"
 	"net/http"
 
-	routes "github.com/sonichigo/hg/routes"
-
-	cu "github.com/sonichigo/hg/common"
+	routes "github.com/sonichigo/gitstats/routes"
 )
 
 func main() {
-	// Get port from environment variable or use default
 	routes.SetupRoutes()
-	port := cu.GetPort()
+	port := "8080"
 
 	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {

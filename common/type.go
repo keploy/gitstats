@@ -66,3 +66,49 @@ type StarPoint struct {
 type MultiRepoStarHistory struct {
 	Repositories []StarHistory `json:"repositories"`
 }
+
+// ActiveContributor represents a contributor's activity stats
+type ActiveContributor struct {
+	Login          string    `json:"login"`
+	Contributions  int       `json:"contributions"`
+	LastActiveDate time.Time `json:"last_active_date"`
+}
+
+// ActiveContributorsResponse represents the response for active contributors
+type ActiveContributorsResponse struct {
+	RepoName           string              `json:"repo_name"`
+	TimeRange          string              `json:"time_range"`
+	ActiveContributors []ActiveContributor `json:"active_contributors"`
+}
+
+type StargazerResponse struct {
+	User      User      `json:"user"`
+	StarredAt time.Time `json:"starred_at"`
+}
+
+type User struct {
+	Login     string `json:"login"`
+	AvatarURL string `json:"avatar_url"`
+	Name      string `json:"name"`
+	Location  string `json:"location"`
+	HTMLURL   string `json:"html_url"`
+}
+
+type Stargazer struct {
+	Login     string    `json:"login"`
+	AvatarURL string    `json:"avatar_url"`
+	HTMLURL   string    `json:"html_url"`
+	Name      string    `json:"name,omitempty"`
+	Location  string    `json:"location,omitempty"`
+	StarredAt time.Time `json:"starred_at"`
+}
+
+type PageData struct {
+	Stargazers []Stargazer
+	RepoOwner  string
+	RepoName   string
+	Error      string
+	HasMore    bool
+	NextPage   int
+	TotalCount int
+}

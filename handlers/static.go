@@ -21,3 +21,17 @@ func ServerStartPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+func ServerParticipantPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/participants" {
+		http.ServeFile(w, r, "./web/participants.html")
+		return
+	}
+}
+
+func ServerStargazersPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/stargazers" {
+		http.ServeFile(w, r, "./web/stargazers.html")
+		return
+	}
+	http.NotFound(w, r)
+}

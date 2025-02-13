@@ -2,22 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="description" content="Get GitHub organization contributors">
-    <meta name="keywords" content="HTML, CSS, GitHub, Repository, Star, History, GitHub Stats">
+    <meta name="description" content="View stargazers for any GitHub repository">
+    <meta name="keywords" content="HTML, CSS, GitHub, Repository, Stargazers, GitHub Stats">
     <meta name="author" content="Animesh Pathak">
-    <link type="image/png" sizes="120x120" rel="icon" href="../images/icons8-github-120.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub Stats - by Sonichigo</title>
+    <link type="image/png" sizes="120x120" rel="icon" href="../images/icons8-github-120.png">
+    <title>Stargazers - GitHub Stats</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            max-width: x-full;
+            max-width: full;
             margin: 0 auto;
             padding: 0;
             background-color: #f6f8fa;
         }
-        /* New navbar styles */
+        
         .navbar {
             background-color: #24292e;
             padding: 12px 20px;
@@ -27,9 +27,6 @@
             text-align: center;
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-        }
-        .a:hover {
-            cursor: pointer;
         }
 
         .logo {
@@ -41,34 +38,40 @@
             fill: white;
             height: 32px;
         }
+
         text {
             fill: white;
-            font-family:"Arial";
-            font-size:"30";
-            font-weight:"bold";
+            font-family: "Arial";
+            font-size: "30";
+            font-weight: "bold";
         }
+
         .container {
             background-color: white;
             border-radius: 8px;
             padding: 20px;
+            margin: 0 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-            margin: 1%;
         }
+
         .header {
             text-align: center;
             margin-bottom: 30px;
         }
+
         .input-group {
             display: flex;
             flex-direction: column;
             gap: 10px;
             margin-bottom: 20px;
         }
+
         .input-row {
             display: flex;
             gap: 10px;
             justify-content: center;
         }
+
         input {
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -76,6 +79,7 @@
             width: 300px;
             font-size: 16px;
         }
+
         button {
             padding: 8px 16px;
             background-color: #2ea44f;
@@ -85,39 +89,92 @@
             cursor: pointer;
             font-size: 16px;
         }
+
         button:hover {
             background-color: #2c974b;
         }
+
         .stats {
+            margin: 20px;
+        }
+
+        .stargazers-list {
+            display: grid;
+            gap: 15px;
             margin-top: 20px;
         }
-        .total-stats {
-            text-align: center;
-            font-size: 24px;
-            margin: 20px 0;
-            padding: 20px;
-            background-color: #f6f8fa;
+
+        .stargazer-card {
+            background-color: white;
+            border: 1px solid #ddd;
             border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
+
+        .stargazer-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+
+        .stargazer-details {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .stargazer-name {
+            font-weight: bold;
+            color: #0366d6;
+        }
+
+        .stargazer-info {
+            color: #666;
+            font-size: 0.9em;
+        }
+
         .error {
             color: #cf222e;
             text-align: center;
             padding: 10px;
             background-color: #ffebe9;
             border-radius: 4px;
-            margin: 10px 0;
+            margin: 10px 20px;
             display: none;
         }
+
         .loading {
             text-align: center;
             padding: 20px;
             display: none;
         }
+
         .token-help {
             font-size: 14px;
             color: #666;
             text-align: center;
             margin-top: 5px;
+        }
+
+        .pagination {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .load-more {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #0366d6;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+
+        .load-more:hover {
+            background-color: #0256b4;
         }
     </style>
 </head>
@@ -159,17 +216,20 @@
             </a>
         </div>
     </nav>
+
     <div class="container">
         <div class="header">
-            <h1>Organization Contributors</h1>
+            <h1>GitHub Stargazers</h1>
+            <p>View all users who have starred a GitHub repository</p>
         </div>
-
+        
         <div class="input-group">
             <div class="input-row">
-                <input type="text" id="orgName" placeholder="Enter GitHub organization name" />
+                <input type="text" id="owner" placeholder="Repository Owner" />
+                <input type="text" id="repo" placeholder="Repository Name" />
             </div>
             <div class="input-row">
-                <input type="password" id="githubToken" placeholder="GitHub Token (optional)" />
+                <input type="password" id="githubToken" placeholder="GitHub Token" />
             </div>
             <div class="token-help">
                 Note: Without a token, requests are limited to 60 per hour. With a token, you get 5,000 requests per hour.
@@ -178,7 +238,7 @@
                 Need a token? Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token
             </div>
             <div class="input-row">
-                <button onclick="fetchOrgContributors()">Get Contributors</button>
+                <button onclick="fetchStargazers()">Get Stargazers</button>
             </div>
         </div>
     </div>
@@ -187,10 +247,18 @@
     <div id="loading" class="loading">Loading...</div>
 
     <div id="stats" class="stats">
-        <div id="totalStats" class="total-stats"></div>
+        <div id="stargazers" class="stargazers-list"></div>
     </div>
 
     <script>
+        const formatDate = (dateString) => {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        };
+
         const showError = (message) => {
             const errorDiv = document.getElementById('error');
             errorDiv.textContent = message;
@@ -198,57 +266,87 @@
             document.getElementById('loading').style.display = 'none';
         };
 
-        const fetchOrgContributors = async () => {
-            const orgName = document.getElementById('orgName').value;
+        let currentPage = 1;
+
+        const fetchStargazers = async (page = 1) => {
+            const owner = document.getElementById('owner').value;
+            const repo = document.getElementById('repo').value;
             const token = document.getElementById('githubToken').value;
 
-            if (!orgName) {
-                showError('Please enter an organization name');
+            if (!owner || !repo) {
+                showError('Please enter both repository owner and name');
                 return;
             }
 
             document.getElementById('error').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading').innerHTML = '<span class="loading-text">Fetching organization contributors, this might take a moment...</span>';
-            document.getElementById('totalStats').innerHTML = '';
+            
+            if (page === 1) {
+                document.getElementById('stargazers').innerHTML = '';
+            }
 
             try {
                 const headers = {
                     'Accept': 'application/vnd.github.v3+json'
                 };
-
+                
                 if (token) {
                     headers['Authorization'] = `Bearer ${token}`;
                 }
 
-                const response = await axios.get(`/org-contributors?org=${encodeURIComponent(orgName)}`, {
+                const response = await axios.get(`/github-stargazers?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&page=${page}`, {
                     headers: headers
                 });
-
+                
                 const data = response.data;
-                document.getElementById('totalStats').innerHTML = `
-                    <div>
-                        <strong>Total Repositories:</strong> ${data.total_repos}<br>
-                        <strong>Total Contributors:</strong> ${data.total_contributors}
-                    </div>
-                `;
+                const stargazersContainer = document.getElementById('stargazers');
+
+                data.Stargazers.forEach(stargazer => {
+                    const stargazerElement = document.createElement('div');
+                    stargazerElement.className = 'stargazer-card';
+                    stargazerElement.innerHTML = `
+                        <img class="stargazer-avatar" src="${stargazer.AvatarURL}" alt="${stargazer.Login}'s avatar" />
+                        <div class="stargazer-details">
+                            <a href="${stargazer.HTMLURL}" target="_blank" class="stargazer-name">@${stargazer.Login}</a>
+                            <div class="stargazer-info">
+                                ${stargazer.Name ? `<span>${stargazer.Name}</span><br>` : ''}
+                                ${stargazer.Location ? `<span>📍 ${stargazer.Location}</span><br>` : ''}
+                                <span>⭐ Starred at: ${formatDate(stargazer.StarredAt)}</span>
+                            </div>
+                        </div>
+                    `;
+                    stargazersContainer.appendChild(stargazerElement);
+                });
+
+                if (data.HasMore) {
+                    const paginationDiv = document.createElement('div');
+                    paginationDiv.className = 'pagination';
+                    paginationDiv.innerHTML = `
+                        <a href="#" class="load-more" onclick="fetchStargazers(${page + 1}); return false;">
+                            Load More Stargazers
+                        </a>
+                    `;
+                    stargazersContainer.appendChild(paginationDiv);
+                }
+
             } catch (error) {
-                showError(error.response?.data || 'Error fetching organization contributors');
+                showError(error.response?.data || 'Error fetching stargazers');
             } finally {
                 document.getElementById('loading').style.display = 'none';
             }
         };
 
-        document.getElementById('orgName').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                fetchOrgContributors();
-            }
+        // Handle Enter key press
+        document.getElementById('owner').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') fetchStargazers();
+        });
+
+        document.getElementById('repo').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') fetchStargazers();
         });
 
         document.getElementById('githubToken').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                fetchOrgContributors();
-            }
+            if (e.key === 'Enter') fetchStargazers();
         });
     </script>
 </body>
