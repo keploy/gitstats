@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	cu "github.com/sonichigo/gitstats/common"
+	cu "github.com/keploy/gitstats/common"
 )
 
 // Mock HTTP client and server setup for testing
@@ -35,7 +35,6 @@ func TestCalculateDownloadStats(t *testing.T) {
 	}
 }
 
-
 func TestExtractRepoInfo(t *testing.T) {
 	tests := []struct {
 		url      string
@@ -62,12 +61,12 @@ func TestExtractRepoInfo(t *testing.T) {
 
 // Test generated using Keploy
 func TestExtractRepoInfo_ValidURL(t *testing.T) {
-	owner, repo, err := extractRepoInfo("https://github.com/sonichigo/gitstats")
+	owner, repo, err := extractRepoInfo("https://github.com/keploy/gitstats")
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	if owner != "sonichigo" || repo != "gitstats" {
-		t.Errorf("Expected owner 'sonichigo' and repo 'gitstats', got owner '%s' and repo '%s'", owner, repo)
+	if owner != "keploy" || repo != "gitstats" {
+		t.Errorf("Expected owner 'keploy' and repo 'gitstats', got owner '%s' and repo '%s'", owner, repo)
 	}
 }
 

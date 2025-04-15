@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	cu "github.com/sonichigo/gitstats/common"
+	cu "github.com/keploy/gitstats/common"
 )
 
 func HandleRepoStats(w http.ResponseWriter, r *http.Request) {

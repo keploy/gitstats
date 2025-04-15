@@ -11,7 +11,7 @@ import (
 	"sort"
 	"time"
 
-	cu "github.com/sonichigo/gitstats/common"
+	cu "github.com/keploy/gitstats/common"
 )
 
 func calculateDownloadStats(releases []cu.Release) *cu.DownloadStats {

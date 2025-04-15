@@ -1,3 +1,3 @@
-module github.com/sonichigo/gitstats
+module github.com/keploy/gitstats
 
-go 1.22.5
+go 1.24
