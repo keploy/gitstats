@@ -3,7 +3,7 @@ package routes
 import (
 	"net/http"
 
-	handler "github.com/sonichigo/gitstats/handlers"
+	handler "github.com/keploy/gitstats/handlers"
 )
 
 func SetupRoutes() {

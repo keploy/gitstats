@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	routes "github.com/sonichigo/gitstats/routes"
+	routes "github.com/keploy/gitstats/routes"
 )
 
 func main() {
