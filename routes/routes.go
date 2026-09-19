@@ -11,6 +11,10 @@ func SetupRoutes() {
 
 	// Serve static files
 	http.HandleFunc("/", handler.ServerIndex)
+
+	// Health probes (liveness + readiness) for Kubernetes.
+	http.HandleFunc("/healthz", handler.Healthz)
+	http.HandleFunc("/readyz", handler.Readyz)
 	http.HandleFunc("/orgs", handler.ServerOrgPage)
 	http.HandleFunc("/starhistory", handler.ServerStartPage)
 	http.HandleFunc("/participants", handler.ServerParticipantPage)
