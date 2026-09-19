@@ -1,0 +1,26 @@
+# Go build, vet and test on PRs and pushes to main
+when:
+  - event: pull_request
+  - event: push
+    branch: main
+
+labels:
+  platform: linux/amd64
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+    settings:
+      lfs: false
+      depth: 1
+
+variables:
+  - &ci_image 'ghcr.io/keploy/keploy-ci:1.2.25'
+
+steps:
+  build:
+    image: *ci_image
+    commands:
+      - go build -o /dev/null .
+      - go vet ./...
+      - go test ./...

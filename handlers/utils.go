@@ -14,6 +14,15 @@ import (
 	cu "github.com/keploy/gitstats/common"
 )
 
+// githubHTTPClientTimeout bounds every outbound GitHub API call. Without it the
+// default http.Client waits forever, which can hang request handlers (and CI
+// tests) indefinitely when GitHub is slow or unreachable.
+const githubHTTPClientTimeout = 15 * time.Second
+
+// githubAPIBaseURL is the GitHub REST API root. It is a var (not a const) so
+// tests can point it at an httptest stub; production always uses the real host.
+var githubAPIBaseURL = "https://api.github.com"
+
 func calculateDownloadStats(releases []cu.Release) *cu.DownloadStats {
 	stats := &cu.DownloadStats{
 		Releases: make([]cu.ReleaseDownloadStats, 0),
@@ -53,10 +62,10 @@ func getAllReleases(owner, repo string, config *cu.Config) ([]cu.Release, error)
 	perPage := 100
 
 	for {
-		url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases?page=%d&per_page=%d",
+		url := fmt.Sprintf("%s/repos/%s/%s/releases?page=%d&per_page=%d", githubAPIBaseURL,
 			owner, repo, page, perPage)
 
-		client := &http.Client{}
+		client := &http.Client{Timeout: githubHTTPClientTimeout}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
@@ -135,10 +144,10 @@ func getStarHistory(owner, repo string, config *cu.Config) (*cu.StarHistory, err
 	history := make([]cu.StarPoint, 0)
 
 	for {
-		url := fmt.Sprintf("https://api.github.com/repos/%s/%s/stargazers?page=%d&per_page=%d",
+		url := fmt.Sprintf("%s/repos/%s/%s/stargazers?page=%d&per_page=%d", githubAPIBaseURL,
 			owner, repo, page, perPage)
 
-		client := &http.Client{}
+		client := &http.Client{Timeout: githubHTTPClientTimeout}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
@@ -215,9 +224,9 @@ func getOrgContributors(org string, config *cu.Config) (*cu.OrganizationStats, e
 	totalRepos := 0
 
 	for {
-		url := fmt.Sprintf("https://api.github.com/orgs/%s/repos?page=%d&per_page=%d", org, page, perPage)
+		url := fmt.Sprintf("%s/orgs/%s/repos?page=%d&per_page=%d", githubAPIBaseURL, org, page, perPage)
 
-		client := &http.Client{}
+		client := &http.Client{Timeout: githubHTTPClientTimeout}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
@@ -254,7 +263,7 @@ func getOrgContributors(org string, config *cu.Config) (*cu.OrganizationStats, e
 
 		for _, repo := range repos {
 			repoName := repo["name"].(string)
-			repoContributorsURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contributors", org, repoName)
+			repoContributorsURL := fmt.Sprintf("%s/repos/%s/%s/contributors", githubAPIBaseURL, org, repoName)
 
 			contribReq, err := http.NewRequest("GET", repoContributorsURL, nil)
 			if err != nil {
@@ -311,10 +320,10 @@ func getOrgMembers(org string) (map[string]struct{}, error) {
 	perPage := 100
 
 	for {
-		url := fmt.Sprintf("https://api.github.com/orgs/%s/members?page=%d&per_page=%d",
+		url := fmt.Sprintf("%s/orgs/%s/members?page=%d&per_page=%d", githubAPIBaseURL,
 			org, page, perPage)
 
-		client := &http.Client{}
+		client := &http.Client{Timeout: githubHTTPClientTimeout}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
@@ -383,10 +392,10 @@ func getRecentCommits(owner, repo string, since time.Time, config *cu.Config) ([
 	}
 
 	for {
-		url := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?since=%s&page=%d&per_page=%d",
+		url := fmt.Sprintf("%s/repos/%s/%s/commits?since=%s&page=%d&per_page=%d", githubAPIBaseURL,
 			owner, repo, since.Format(time.RFC3339), page, perPage)
 
-		client := &http.Client{}
+		client := &http.Client{Timeout: githubHTTPClientTimeout}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
@@ -506,10 +515,10 @@ func getOrgRepositories(org string, config *cu.Config) ([]struct {
 	}
 
 	for {
-		url := fmt.Sprintf("https://api.github.com/orgs/%s/repos?page=%d&per_page=%d&type=public",
+		url := fmt.Sprintf("%s/orgs/%s/repos?page=%d&per_page=%d&type=public", githubAPIBaseURL,
 			org, page, perPage)
 
-		client := &http.Client{}
+		client := &http.Client{Timeout: githubHTTPClientTimeout}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
@@ -624,10 +633,10 @@ func sendJSONResponse(w http.ResponseWriter, response cu.ActiveContributorsRespo
 
 func fetchStargazers(owner, repo, token string, page int) ([]cu.Stargazer, bool, int, error) {
 	perPage := 100
-	client := &http.Client{}
+	client := &http.Client{Timeout: githubHTTPClientTimeout}
 
 	// First, get total stargazer count
-	repoURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
+	repoURL := fmt.Sprintf("%s/repos/%s/%s", githubAPIBaseURL, owner, repo)
 	repoReq, err := http.NewRequest("GET", repoURL, nil)
 	if err != nil {
 		return nil, false, 0, err
@@ -654,7 +663,7 @@ func fetchStargazers(owner, repo, token string, page int) ([]cu.Stargazer, bool,
 	}
 
 	// Fetch stargazers for the requested reverse page
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/stargazers?page=%d&per_page=%d",
+	url := fmt.Sprintf("%s/repos/%s/%s/stargazers?page=%d&per_page=%d", githubAPIBaseURL,
 		owner, repo, reversePage, perPage)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -710,8 +719,8 @@ func fetchStargazers(owner, repo, token string, page int) ([]cu.Stargazer, bool,
 }
 
 func fetchUserDetails(username, token string) (*cu.User, error) {
-	client := &http.Client{}
-	url := fmt.Sprintf("https://api.github.com/users/%s", username)
+	client := &http.Client{Timeout: githubHTTPClientTimeout}
+	url := fmt.Sprintf("%s/users/%s", githubAPIBaseURL, username)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
