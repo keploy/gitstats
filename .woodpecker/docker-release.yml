@@ -1,0 +1,59 @@
+# Build and push production Docker image on tag
+when:
+  - event: tag
+    ref: refs/tags/v*.*.*
+
+labels:
+  platform: linux/amd64
+
+variables:
+  - &ci_image 'ghcr.io/keploy/keploy-ci:1.2.25'
+
+steps:
+  build-and-push:
+    image: *ci_image
+    privileged: true
+    environment:
+      # Point the host dockerd at the LAN registry mirror so the bootstrap
+      # pulls (moby/buildkit for `buildx create`, tonistiigi/binfmt) resolve via
+      # the authenticated Docker Hub mirror instead of anonymous docker.io.
+      DOCKERD_FLAGS: "--registry-mirror=http://192.168.116.165:5000 --dns=8.8.8.8 --dns=8.8.4.4"
+      DOCKER_REGISTRY: ghcr.io
+      IMAGE_NAME: keploy/gitstats
+      GHCR_TOKEN:
+        from_secret: ghcr_token
+      GHCR_USERNAME:
+        from_secret: ghcr_username
+    commands:
+      - start-docker
+      - sh .ci/scripts/wait-for-docker.sh
+      - |
+        set -eu
+
+        echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+
+        docker run --privileged --rm tonistiigi/binfmt --install all || true
+
+        # The docker-container driver runs buildkitd in its own container and
+        # inherits neither the host dockerd's --registry-mirror nor its image
+        # store, so it needs .ci/buildkitd.toml to route docker.io FROM refs
+        # through the LAN mirror. The builder name embeds a hash of that config
+        # so editing the toml yields a fresh builder instead of reusing a stale
+        # one.
+        BK_CFG=.ci/buildkitd.toml
+        BK_HASH="$(md5sum "$BK_CFG" | cut -c1-8)"
+        [ -n "$BK_HASH" ] || { echo "ERROR: could not hash $BK_CFG"; exit 1; }
+        BUILDER="gitstats-builder-$BK_HASH"
+        docker buildx create --name "$BUILDER" --buildkitd-config "$BK_CFG" --use \
+          || docker buildx use "$BUILDER"
+        docker buildx inspect --bootstrap
+
+        IMAGE_REF="$DOCKER_REGISTRY/$IMAGE_NAME"
+
+        echo "Building and pushing: $IMAGE_REF:${CI_COMMIT_TAG} + latest"
+        docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          --push \
+          -t "$IMAGE_REF:${CI_COMMIT_TAG}" \
+          -t "$IMAGE_REF:latest" \
+          .
