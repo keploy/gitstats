@@ -15,7 +15,7 @@ clone:
       depth: 1
 
 variables:
-  - &ci_image 'ghcr.io/keploy/keploy-ci:1.2.25'
+  - &ci_image 'ghcr.io/keploy/keploy-ci:1.2.40'
 
 steps:
   build:
