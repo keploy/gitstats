@@ -7,7 +7,7 @@ labels:
   platform: linux/amd64
 
 variables:
-  - &ci_image 'ghcr.io/keploy/keploy-ci:1.2.25'
+  - &ci_image 'ghcr.io/keploy/keploy-ci:1.2.40'
 
 steps:
   build-and-push:
