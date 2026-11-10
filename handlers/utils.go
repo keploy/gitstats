@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"strconv"
+	"sync"
 	"time"
 
 	cu "github.com/keploy/gitstats/common"
@@ -18,6 +20,26 @@ import (
 // default http.Client waits forever, which can hang request handlers (and CI
 // tests) indefinitely when GitHub is slow or unreachable.
 const githubHTTPClientTimeout = 15 * time.Second
+
+// maxGitHubRetries bounds how many times a GitHub request is retried after a
+// rate-limit or 5xx response before giving up.
+const maxGitHubRetries = 3
+
+// maxRateLimitWait caps how long a request waits for GitHub's rate limit to
+// reset. A reset further away than this is reported to the caller as a
+// *rateLimitError instead of stalling the request (and the handler) for an
+// hour; the cached user details keep the page usable in the meantime.
+const maxRateLimitWait = 60 * time.Second
+
+// userDetailsCacheTTL is how long a fetched GitHub user profile (name,
+// location, avatar) stays in the in-memory cache. Profiles change rarely,
+// and the same users reappear on every stargazers page load, so caching
+// them is what stops a big repo from burning the token on repeat visits.
+const userDetailsCacheTTL = time.Hour
+
+// githubSleep sleeps between GitHub retries. It is a var so tests can
+// observe (or skip) the backoff instead of waiting it out.
+var githubSleep = time.Sleep
 
 // githubAPIBaseURL is the GitHub REST API root. It is a var (not a const) so
 // tests can point it at an httptest stub; production always uses the real host.
@@ -631,6 +653,148 @@ func sendJSONResponse(w http.ResponseWriter, response cu.ActiveContributorsRespo
 	json.NewEncoder(w).Encode(response)
 }
 
+// rateLimitError reports that GitHub's rate limit is exhausted. RetryAfter
+// says how long the caller should wait before trying again (0 if GitHub did
+// not say).
+type rateLimitError struct {
+	RetryAfter time.Duration
+}
+
+func (e *rateLimitError) Error() string {
+	if e.RetryAfter > 0 {
+		return fmt.Sprintf("GitHub API rate limit exceeded, retry after %s", e.RetryAfter.Round(time.Second))
+	}
+	return "GitHub API rate limit exceeded"
+}
+
+// isRateLimited reports whether resp is a GitHub rate-limit response: a 429,
+// or a 403 with no remaining quota (X-RateLimit-Remaining: 0) or a
+// Retry-After header (secondary limits). Other 403s (bad token, forbidden
+// resource) are not rate limits and must not be retried.
+func isRateLimited(resp *http.Response) bool {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return true
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		return false
+	}
+	return resp.Header.Get("X-RateLimit-Remaining") == "0" || resp.Header.Get("Retry-After") != ""
+}
+
+// rateLimitWait returns how long to wait before retrying a rate-limited
+// response, from Retry-After (seconds) or X-RateLimit-Reset (unix epoch).
+// It returns 0 when GitHub gave no usable timing.
+func rateLimitWait(resp *http.Response) time.Duration {
+	if after := resp.Header.Get("Retry-After"); after != "" {
+		if secs, err := strconv.Atoi(after); err == nil && secs > 0 {
+			return time.Duration(secs) * time.Second
+		}
+	}
+	if reset := resp.Header.Get("X-RateLimit-Reset"); reset != "" {
+		if unix, err := strconv.ParseInt(reset, 10, 64); err == nil {
+			if wait := time.Until(time.Unix(unix, 0)); wait > 0 {
+				return wait
+			}
+		}
+	}
+	return 0
+}
+
+// doGitHubRequest executes req against the GitHub API, retrying rate-limit
+// responses and 5xx errors with backoff. It returns the response only for a
+// 2xx status; the caller must close the body. A rate limit whose reset is
+// further than maxRateLimitWait away is returned as a *rateLimitError
+// instead of stalling the request. Non-retryable statuses fail at once with
+// the same message the callers produced before.
+func doGitHubRequest(client *http.Client, req *http.Request) (*http.Response, error) {
+	backoff := time.Second
+	for attempt := 0; attempt <= maxGitHubRetries; attempt++ {
+		resp, err := client.Do(req)
+		if err != nil {
+			if attempt == maxGitHubRetries {
+				return nil, err
+			}
+			githubSleep(backoff)
+			backoff *= 2
+			continue
+		}
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return resp, nil
+		}
+		// Drain and close so the connection can be reused on a retry.
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+
+		if isRateLimited(resp) {
+			wait := rateLimitWait(resp)
+			if wait <= 0 {
+				wait = backoff
+			}
+			if wait > maxRateLimitWait {
+				return nil, &rateLimitError{RetryAfter: wait}
+			}
+			if attempt == maxGitHubRetries {
+				return nil, &rateLimitError{RetryAfter: wait}
+			}
+			githubSleep(wait)
+			backoff *= 2
+			continue
+		}
+		if resp.StatusCode >= 500 && resp.StatusCode < 600 {
+			if attempt == maxGitHubRetries {
+				return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
+			}
+			githubSleep(backoff)
+			backoff *= 2
+			continue
+		}
+		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
+	}
+	return nil, fmt.Errorf("GitHub API request failed after %d attempts", maxGitHubRetries+1)
+}
+
+// userDetailsCache is a small in-memory TTL cache for GitHub user profiles.
+// A stargazers page fetches one profile per stargazer (100 per page) just
+// for name and location, so without caching every page load re-spends ~100
+// API calls on users it already saw. Profiles change rarely, so an hour's
+// TTL keeps the page fresh enough while cutting repeat traffic to zero.
+// Pure stdlib, no new service: it adds no cost for the operator.
+type userDetailsCache struct {
+	mu      sync.Mutex
+	entries map[string]userDetailsEntry
+	ttl     time.Duration
+}
+
+type userDetailsEntry struct {
+	user      *cu.User
+	expiresAt time.Time
+}
+
+func newUserDetailsCache(ttl time.Duration) *userDetailsCache {
+	return &userDetailsCache{entries: make(map[string]userDetailsEntry), ttl: ttl}
+}
+
+func (c *userDetailsCache) get(username string) (*cu.User, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	entry, ok := c.entries[username]
+	if !ok || time.Now().After(entry.expiresAt) {
+		delete(c.entries, username)
+		return nil, false
+	}
+	return entry.user, true
+}
+
+func (c *userDetailsCache) set(username string, user *cu.User) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries[username] = userDetailsEntry{user: user, expiresAt: time.Now().Add(c.ttl)}
+}
+
+// userCache holds fetched GitHub user profiles for the lifetime of the
+// process.
+var userCache = newUserDetailsCache(userDetailsCacheTTL)
+
 func fetchStargazers(owner, repo, token string, page int) ([]cu.Stargazer, bool, int, error) {
 	perPage := 100
 	client := &http.Client{Timeout: githubHTTPClientTimeout}
@@ -642,7 +806,7 @@ func fetchStargazers(owner, repo, token string, page int) ([]cu.Stargazer, bool,
 		return nil, false, 0, err
 	}
 	repoReq.Header.Add("Authorization", "Bearer "+token)
-	repoResp, err := client.Do(repoReq)
+	repoResp, err := doGitHubRequest(client, repoReq)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -674,15 +838,11 @@ func fetchStargazers(owner, repo, token string, page int) ([]cu.Stargazer, bool,
 	req.Header.Add("Accept", "application/vnd.github.v3.star+json")
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	resp, err := client.Do(req)
+	resp, err := doGitHubRequest(client, req)
 	if err != nil {
 		return nil, false, 0, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, false, 0, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
-	}
 
 	var starResponses []cu.StargazerResponse
 	if err := json.NewDecoder(resp.Body).Decode(&starResponses); err != nil {
@@ -719,6 +879,12 @@ func fetchStargazers(owner, repo, token string, page int) ([]cu.Stargazer, bool,
 }
 
 func fetchUserDetails(username, token string) (*cu.User, error) {
+	// Profiles are cached: a stargazers page re-fetches the same users on
+	// every load, and each fetch costs one API call against the token.
+	if user, ok := userCache.get(username); ok {
+		return user, nil
+	}
+
 	client := &http.Client{Timeout: githubHTTPClientTimeout}
 	url := fmt.Sprintf("%s/users/%s", githubAPIBaseURL, username)
 
@@ -729,20 +895,17 @@ func fetchUserDetails(username, token string) (*cu.User, error) {
 
 	req.Header.Add("Authorization", "Bearer "+token)
 
-	resp, err := client.Do(req)
+	resp, err := doGitHubRequest(client, req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
-	}
 
 	var user cu.User
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, err
 	}
 
+	userCache.set(username, &user)
 	return &user, nil
 }
