@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -190,6 +191,16 @@ func HandleStargazers(w http.ResponseWriter, r *http.Request) {
 	// Fetch stargazers
 	stargazers, hasMore, total, err := fetchStargazers(owner, repo, token, page)
 	if err != nil {
+		// A still-exhausted rate limit is reported as 429 with Retry-After
+		// so the caller can wait and retry instead of seeing a bare 500.
+		var rlErr *rateLimitError
+		if errors.As(err, &rlErr) {
+			if rlErr.RetryAfter > 0 {
+				w.Header().Set("Retry-After", strconv.Itoa(int(rlErr.RetryAfter.Seconds())))
+			}
+			http.Error(w, rlErr.Error(), http.StatusTooManyRequests)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
