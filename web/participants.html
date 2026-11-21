@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="View most active contributors from last 30 days for any GitHub repository">
+    <meta name="keywords" content="HTML, CSS, GitHub, Repository, Contributors, GitHub Stats">
+    <meta name="author" content="Animesh Pathak">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link type="image/png" sizes="120x120" rel="icon" href="../images/icons8-github-120.png">
+    <title>Active Contributors - GitHub Stats</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: full;
+            margin: 0 auto;
+            padding: 0;
+            background-color: #f6f8fa;
+        }
+        
+        .navbar {
+            background-color: #24292e;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+
+        .a:hover {
+            cursor: pointer;
+        }
+
+        .logo {
+            height: 32px;
+            width: auto;
+        }
+        
+        .logo svg {
+            fill: white;
+            height: 32px;
+        }
+
+        text {
+            fill: white;
+            font-family: "Arial";
+            font-size: "30";
+            font-weight: "bold";
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #2ea44f;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #2c974b;
+        }
+
+        .stats {
+            margin: 20px;
+        }
+
+        .contributors-list {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .contributor-card {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .contributor-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .contributor-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+
+        .contributor-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .contributor-name {
+            font-weight: bold;
+            color: #0366d6;
+        }
+
+        .contribution-stats {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .error {
+            color: #cf222e;
+            text-align: center;
+            padding: 10px;
+            background-color: #ffebe9;
+            border-radius: 4px;
+            margin: 10px 20px;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .token-help {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        .loading-text {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <a href="https://github.com/keploy/gitstats">
+                <svg height="32" viewBox="0 0 16 16" version="1.1" width="32">
+                    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                </svg>
+            </a>
+        </div>
+        <div class="logo">
+            <a href="/">
+                <svg height="32" viewBox="0 0 120 32">
+                    <text x="24" y="24">Releases</text>
+                </svg>
+            </a>
+        </div>
+        <div class="logo">
+            <a href="/orgs">
+                <svg height="32" viewBox="0 0 120 32">
+                    <text x="0" y="24">Contributors</text>
+                </svg>
+            </a>
+        </div>
+        <div class="logo">
+            <a href="/starhistory">
+                <svg height="32" viewBox="0 0 120 32">
+                    <text x="0" y="24">Star Growth</text>
+                </svg>
+            </a>
+        </div>
+        <div class="logo">
+            <a href="/stargazers">
+                <svg height="32" viewBox="0 0 120 32">
+                    <text x="0" y="24">Stargazers </text>
+                </svg>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>Active Contributors</h1>
+            <p>View the most active non-organization contributors from the last 30 days</p>
+        </div>
+        
+        <div class="input-group">
+            <div class="input-row">
+                <input type="text" id="repoUrl" placeholder="Enter GitHub repository URL" />
+            </div>
+            <div class="input-row">
+                <input type="password" id="githubToken" placeholder="GitHub Token (optional)" />
+            </div>
+            <div class="token-help">
+                Note: Without a token, requests are limited to 60 per hour. With a token, you get 5,000 requests per hour.
+            </div>
+            <div class="token-help">
+                Need a token? Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token
+            </div>
+            <div class="input-row">
+                <button onclick="fetchContributors()">Get Contributors</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="error" class="error"></div>
+    <div id="loading" class="loading">Loading...</div>
+
+    <div id="stats" class="stats">
+        <div id="contributors" class="contributors-list"></div>
+    </div>
+
+    <script>
+        const formatDate = (dateString) => {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        };
+
+        const showError = (message) => {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        };
+
+        const fetchContributors = async () => {
+            const repoUrl = document.getElementById('repoUrl').value;
+            const token = document.getElementById('githubToken').value;
+
+            if (!repoUrl) {
+                showError('Please enter a repository URL');
+                return;
+            }
+
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').innerHTML = '<span class="loading-text">Fetching active contributors, this might take a moment...</span>';
+            document.getElementById('contributors').innerHTML = '';
+
+            try {
+                const headers = {
+                    'Accept': 'application/vnd.github.v3+json'
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const response = await axios.get(`/active-contributors?repo=${encodeURIComponent(repoUrl)}`, {
+                    headers: headers
+                });
+                
+                const data = response.data;
+
+                const contributorsHtml = data.active_contributors.map(contributor => `
+                    <div class="contributor-card">
+                        <div class="contributor-info">
+                            <img class="contributor-avatar" src="https://github.com/${contributor.login}.png" alt="${contributor.login}'s avatar" />
+                            <div class="contributor-details">
+                                <a href="https://github.com/${contributor.login}" target="_blank" class="contributor-name">@${contributor.login}</a>
+                                <div class="contribution-stats">
+                                    ${contributor.contributions} contributions
+                                    <br>
+                                    Last active: ${formatDate(contributor.last_active_date)}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="contribution-count">
+                            <strong>${contributor.contributions}</strong> commits
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('contributors').innerHTML = contributorsHtml || '<p style="text-align: center">No active contributors found in the last 30 days.</p>';
+            } catch (error) {
+                showError(error.response?.data || 'Error fetching contributor statistics');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        };
+
+        // Handle Enter key press
+        document.getElementById('repoUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                fetchContributors();
+            }
+        });
+
+        document.getElementById('githubToken').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                fetchContributors();
+            }
+        });
+    </script>
+</body>
+</html>

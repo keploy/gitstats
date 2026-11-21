@@ -1,0 +1,23 @@
+# BuildKit registry config for the docker-container buildx driver.
+#
+# Multi-arch `--push` builds must use the docker-container driver, which runs
+# buildkitd in its own container and inherits NEITHER the host dockerd's
+# --registry-mirror (set via DOCKERD_FLAGS) NOR the host image store. So it
+# resolves every FROM straight from the network. Pointing docker.io at the LAN
+# mirror here routes those pulls through the authenticated Docker Hub mirror,
+# clearing the anonymous rate limit that made ECR Public (its old 500 GB/month
+# anonymous quota now exhausted -> "toomanyrequests: Data limit exceeded")
+# unusable. The Dockerfile FROM lines are therefore plain Docker Hub refs.
+#
+# BuildKit treats a mirror as best-effort: if unreachable it falls back to the
+# upstream registry rather than failing the build.
+#
+# Usage: docker buildx create --buildkitd-config .ci/buildkitd.toml ...
+# http/insecure: the mirror is plain HTTP on the CI LAN.
+
+[registry."docker.io"]
+  mirrors = ["192.168.116.165:5000"]
+
+[registry."192.168.116.165:5000"]
+  http = true
+  insecure = true
